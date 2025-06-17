@@ -20,7 +20,8 @@ const profileSchema = new Schema({
   customAchievements: [Schema.Types.Mixed],
   birthday:           Date,
   gender:             String,
-  timezone:           String
+  timezone:           String,
+  aboutMe:            String
 }, { _id: false });
 
 // location sub‐document (GeoJSON Point + extras)

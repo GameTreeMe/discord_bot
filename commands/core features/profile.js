@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { User } = require('../../models/user'); 
+const { Game } = require('../../models/games'); // Import Game model
 
 /**
  * /profile <username>
@@ -32,6 +33,8 @@ module.exports = {
         'profile.languages',
         'profile.birthday',
         'profile.timezone',
+        'profile.gender',
+        'profile.aboutMe',
         'personalityProfile.personality',
         'gameIds'
       ])
@@ -39,7 +42,7 @@ module.exports = {
 
     if (!dbUser) {
       return interaction.editReply({
-        content: `❌ No user found with username \`${username}\`.`
+        content: `❌ No user found with username \`${username}\`, please type the case-sensitive gametree username.`
       });
     }
 
@@ -52,6 +55,24 @@ module.exports = {
     }
 
     // build the embed
+    const aboutMe = dbUser.profile?.aboutMe || 'This user has not written their about me.';
+    const gender = dbUser.profile?.gender || 'This user has chosen not to share their gender.';
+
+    // Convert gameIds to game names
+    let gameNames = '—';
+    if (Array.isArray(dbUser.gameIds) && dbUser.gameIds.length > 0) {
+      // Find all games in one query
+      const games = await Game.find({ _id: { $in: dbUser.gameIds } }).select(['alternative_names']).lean();
+      if (games.length > 0) {
+        gameNames = games.map(g => {
+          if (Array.isArray(g.alternative_names) && g.alternative_names.length > 0) {
+            return g.alternative_names[g.alternative_names.length - 1];
+          }
+          return 'Unknown Game';
+        }).join(', ');
+      }
+    }
+
     const embed = new EmbedBuilder()
       .setTitle(`GameTree Profile: ${username}`)
       .setColor(0x00AE86)
@@ -61,9 +82,10 @@ module.exports = {
         { name: 'Language',  value: (dbUser.profile.languages || []).join(', ') || '—', inline: true },
         { name: 'Age',       value: age,                        inline: true },
         { name: 'Timezone',  value: dbUser.profile.timezone || '—', inline: true },
+        { name: 'Gender',    value: gender,                     inline: true },
+        { name: 'About Me',  value: aboutMe,                    inline: false },
         { name: 'Personality', value: dbUser.personalityProfile?.personality || '—', inline: true },
-        // if you have a separate Game model you could resolve IDs to names here instead
-        { name: 'Games',     value: (dbUser.gameIds || []).join(', ') || '—', inline: false }
+        { name: 'Want to play',     value: gameNames, inline: false }
       )
       .setTimestamp();
 
