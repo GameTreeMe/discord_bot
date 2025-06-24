@@ -143,7 +143,9 @@ const userSchema = new Schema({
   personalityProfile: {
     personality: String
   },
-  watchedByteIds:                [Schema.Types.Mixed]
+  watchedByteIds:                [Schema.Types.Mixed],
+  discordId:                     String, // Added for Discord linking
+  discordUsername:               String  // Optionally store Discord username/tag
 }, {
   collection: 'users',
   timestamps: false
