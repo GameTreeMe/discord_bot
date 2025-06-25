@@ -62,14 +62,9 @@ module.exports = {
     let gameNames = '—';
     if (Array.isArray(dbUser.gameIds) && dbUser.gameIds.length > 0) {
       // Find all games in one query
-      const games = await Game.find({ _id: { $in: dbUser.gameIds } }).select(['alternative_names']).lean();
+      const games = await Game.find({ _id: { $in: dbUser.gameIds } }).select(['title']).lean();
       if (games.length > 0) {
-        gameNames = games.map(g => {
-          if (Array.isArray(g.alternative_names) && g.alternative_names.length > 0) {
-            return g.alternative_names[g.alternative_names.length - 1];
-          }
-          return 'Unknown Game';
-        }).join(', ');
+        gameNames = games.map(g => g.title || 'Unknown Game').join(', ');
       }
     }
 
