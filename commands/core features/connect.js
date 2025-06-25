@@ -71,9 +71,10 @@ module.exports = {
         if (buttonInteraction.customId === 'confirm_update') {
           user.discordId = interaction.user.id;
           user.discordUsername = interaction.user.tag;
+          user.discordDisplayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
           await user.save();
           await buttonInteraction.update({
-            content: `✅ Updated! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`.`,
+            content: `✅ Updated! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`. Please check case-sensitive spelling.`,
             components: [],
             flags: MessageFlags.Ephemeral
           });
@@ -97,10 +98,11 @@ module.exports = {
     // If not already linked, proceed as before
     user.discordId = interaction.user.id;
     user.discordUsername = interaction.user.tag;
+    user.discordDisplayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
     await user.save();
 
     return interaction.editReply({
-      content: `✅ Success! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`.`,
+      content: `✅ Success! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`. Please check case-sensitive spelling.`,
       flags: MessageFlags.Ephemeral
     });
   }

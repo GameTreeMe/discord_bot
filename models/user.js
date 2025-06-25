@@ -145,10 +145,14 @@ const userSchema = new Schema({
   },
   watchedByteIds:                [Schema.Types.Mixed],
   discordId:                     String, // Added for Discord linking
-  discordUsername:               String  // Optionally store Discord username/tag
+  discordUsername:               String,  // Optionally store Discord username/tag
+  discordDisplayName:            String   // Optionally store Discord display name
 }, {
   collection: 'users',
   timestamps: false
 });
+
+userSchema.index({ discordUsername: 1 });
+userSchema.index({ discordDisplayName: 1 });
 
 module.exports.User = model('User', userSchema);

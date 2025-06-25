@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { Game } = require('../../models/games');
+const { Session } = require('../../models/session');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -55,13 +56,18 @@ module.exports = {
     }).select(['_id', 'title', 'alternative_names']);
 
     let gameIdText;
+    let gameIdForSession = null;
     if (dbGames.length === 1) {
       gameIdText = dbGames[0]._id.toString();
+      gameIdForSession = dbGames[0]._id.toString();
     } else if (dbGames.length > 1) {
       gameIdText = dbGames.map(g => `${g._id.toString()} (${g.title}${g.alternative_names && g.alternative_names.length ? ', aka: ' + g.alternative_names.join(', ') : ''})`).join('\n');
       gameIdText = `Multiple matches found:\n${gameIdText}`;
+      // If multiple, store the first match for session (or null if you want to force manual selection)
+      gameIdForSession = dbGames[0]._id.toString();
     } else {
       gameIdText = 'Not found in database';
+      gameIdForSession = null;
     }
 
     // Map platform to channel ID
@@ -76,6 +82,28 @@ module.exports = {
     const channelId = platformChannelMap[platform] || platformChannelMap['Other'];
     const channel = interaction.guild.channels.cache.get(channelId);
 
+    // Create session in DB (let Mongo assign _id)
+    const sessionDoc = new Session({
+      creatorDiscordId: host.id,
+      creatorUsername: host.tag,
+      creatorGTUserId: undefined, // You can fill this if you have GT linkage
+      gameId: gameIdForSession || 'not_found',
+      gameName: gameInput,
+      platform,
+      description,
+      maxPlayers: players,
+      participants: [{ discordId: host.id, discordUsername: host.tag }],
+      textChannelId: channelId,
+      lfgChannelIds: [channelId],
+      lfgMessageIds: [], // Will be filled after sending the message
+      status: 'open',
+      sessionId: undefined // Will set after save
+    });
+    await sessionDoc.save();
+    // Set sessionId to the Mongo _id string and save again
+    sessionDoc.sessionId = sessionDoc._id.toString();
+    await sessionDoc.save();
+
     const embed = new EmbedBuilder()
       .setTitle('🎮 Looking For Group!')
       .setColor(0x5865F2)
@@ -85,17 +113,21 @@ module.exports = {
         { name: 'Players Needed', value: players.toString(), inline: true },
         { name: 'Host', value: `<@${host.id}>`, inline: true },
         { name: 'Description', value: description, inline: false },
-        { name: 'Game _id(s)', value: gameIdText, inline: false }
+        { name: 'Game _id(s)', value: gameIdText, inline: false },
+        { name: 'Session ID', value: sessionDoc.sessionId, inline: false }
       )
       .setFooter({ text: `LFG posted by ${host.tag}` })
       .setTimestamp();
 
     if (channel) {
-      await channel.send({
+      const sentMsg = await channel.send({
         content: '🚀 New LFG post!',
         embeds: [embed],
         allowedMentions: { users: [] }
       });
+      // Save message ID to session
+      sessionDoc.lfgMessageIds.push(sentMsg.id);
+      await sessionDoc.save();
       await interaction.editReply({
         content: `Your LFG post has been shared in <#${channelId}>!`,
       });

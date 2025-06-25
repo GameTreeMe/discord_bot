@@ -25,8 +25,8 @@ module.exports = {
 
     const username = interaction.options.getString('username', true);
 
-    // only pull the fields you care about
-    const dbUser = await User.findOne({ username })
+    // Try to find by discordDisplayName, then discordUsername, then username
+    let dbUser = await User.findOne({ discordDisplayName: username })
       .select([
         'platforms',
         'genres',
@@ -41,8 +41,40 @@ module.exports = {
       .lean();
 
     if (!dbUser) {
+      dbUser = await User.findOne({ discordUsername: username })
+        .select([
+          'platforms',
+          'genres',
+          'profile.languages',
+          'profile.birthday',
+          'profile.timezone',
+          'profile.gender',
+          'profile.aboutMe',
+          'personalityProfile.personality',
+          'gameIds'
+        ])
+        .lean();
+    }
+
+    if (!dbUser) {
+      dbUser = await User.findOne({ username })
+        .select([
+          'platforms',
+          'genres',
+          'profile.languages',
+          'profile.birthday',
+          'profile.timezone',
+          'profile.gender',
+          'profile.aboutMe',
+          'personalityProfile.personality',
+          'gameIds'
+        ])
+        .lean();
+    }
+
+    if (!dbUser) {
       return interaction.editReply({
-        content: `❌ No user found with username \`${username}\`, please type the case-sensitive gametree username.`
+        content: `❌ No user found with Discord display name, Discord username, or GameTree username \`${username}\`. Please type the case-sensitive name.`
       });
     }
 

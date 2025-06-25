@@ -13,7 +13,7 @@ module.exports = {
       .addFields(
         {
           name: '/profile <username>',
-          value: 'Fetches information about a particular user and shares a summary.',
+          value: 'Fetches information about a particular user and shares a summary. Please update your Display Name to your GameTree username to make searching easier for everyone.',
         },
         {
           name: '/connect <username> <id>',
