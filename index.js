@@ -11,7 +11,7 @@ async function main() {
     await connectDB();
 
     // 2) Create Discord client
-    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 
     client.commands = new Collection();
     const foldersPath = path.join(__dirname, 'commands');
@@ -31,8 +31,101 @@ async function main() {
         }
     }
 
-    client.once(Events.ClientReady, readyClient => {
+    // --- LFG Voice Channel Cleanup Logic ---
+    const { Session } = require('./models/session');
+    const cleanupTimers = new Map();
+
+    // Helper to end a session (robust, 1:1 mapping for posts, temp channel deletion)
+    async function endLFGSession(session, guild) {
+        // 1. Kick users from the session's voice channel (for safety)
+        const { voiceChannelId, textChannelId, lfgChannelIds = [], lfgMessageIds = [] } = session;
+        if (voiceChannelId) {
+            const voiceChannel = guild.channels.cache.get(voiceChannelId);
+            if (voiceChannel && voiceChannel.type === 2) {
+                for (const [_, member] of voiceChannel.members) {
+                    try { await member.voice.disconnect('LFG session ended'); } catch {}
+                }
+            }
+        }
+        // 2. Delete temp text and voice channels
+        for (const channelId of [textChannelId, voiceChannelId]) {
+            if (!channelId) continue;
+            try {
+                const channel = guild.channels.cache.get(channelId);
+                if (channel) await channel.delete('LFG session ended');
+            } catch {}
+        }
+        // 3. Delete LFG post messages by 1:1 mapping
+        for (let i = 0; i < lfgChannelIds.length; i++) {
+            const channelId = lfgChannelIds[i];
+            const msgId = lfgMessageIds[i];
+            if (!channelId || !msgId) continue;
+            try {
+                const channel = guild.channels.cache.get(channelId);
+                if (channel) {
+                    const msg = await channel.messages.fetch(msgId);
+                    if (msg) await msg.delete();
+                }
+            } catch {}
+        }
+        // 4. Mark session as closed
+        session.status = 'closed';
+        session.callEndedAt = new Date();
+        await session.save();
+    }
+
+    // --- Listen for voiceStateUpdate to auto-cleanup abandoned sessions ---
+    client.on('voiceStateUpdate', async (oldState, newState) => {
+        const lfgCategoryId = '1387583039294406687';
+        const leftChannel = oldState.channel;
+        const joinedChannel = newState.channel;
+        // If user left a channel in the LFG category
+        if (leftChannel && leftChannel.parentId === lfgCategoryId) {
+            if (leftChannel.members.size === 0) {
+                // Find the session for this channel (voiceChannelId)
+                const session = await Session.findOne({ voiceChannelId: leftChannel.id, status: { $in: ['open', 'full'] } });
+                if (session) {
+                    if (cleanupTimers.has(leftChannel.id)) return;
+                    const timer = setTimeout(async () => {
+                        const refreshed = leftChannel.guild.channels.cache.get(leftChannel.id);
+                        if (refreshed && refreshed.members.size === 0) {
+                            await endLFGSession(session, leftChannel.guild);
+                        }
+                        cleanupTimers.delete(leftChannel.id);
+                    }, 60000);
+                    cleanupTimers.set(leftChannel.id, timer);
+                }
+            }
+        }
+        // If user joined a channel in the LFG category, cancel timer
+        if (joinedChannel && joinedChannel.parentId === lfgCategoryId) {
+            if (cleanupTimers.has(joinedChannel.id)) {
+                clearTimeout(cleanupTimers.get(joinedChannel.id));
+                cleanupTimers.delete(joinedChannel.id);
+            }
+        }
+    });
+
+    // --- On bot startup, clean up abandoned sessions (empty LFG voice channels) ---
+    client.once(Events.ClientReady, async (readyClient) => {
         console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+        const lfgCategoryId = '1387583039294406687';
+        // Fetch all guilds the bot is in
+        const guilds = await client.guilds.fetch();
+        for (const [guildId] of guilds) {
+            const guild = await client.guilds.fetch(guildId);
+            const channels = await guild.channels.fetch();
+            const lfgVoiceChannels = channels.filter(c => c.parentId === lfgCategoryId && c.type === 2);
+            for (const [channelId, channel] of lfgVoiceChannels) {
+                if (channel.members.size === 0) {
+                    // Find session by voiceChannelId
+                    const session = await Session.findOne({ voiceChannelId: channelId, status: { $in: ['open', 'full'] } });
+                    if (session) {
+                        await endLFGSession(session, guild);
+                    }
+                }
+            }
+        }
     });
 
     client.on(Events.InteractionCreate, async interaction => {
@@ -54,12 +147,12 @@ async function main() {
             const { Session } = require('./models/session');
             const session = await Session.findOne({ sessionId });
             if (!session) {
-                await interaction.reply({ content: '❌ This LFG session no longer exists.', ephemeral: true });
+                await interaction.reply({ content: '❌ This LFG session no longer exists.', flags: MessageFlags.Ephemeral });
                 return;
             }
             const userId = interaction.user.id;
             if (session.participants.some(p => p.discordId === userId)) {
-                await interaction.reply({ content: 'You have already joined this LFG session!', ephemeral: true });
+                await interaction.reply({ content: 'You have already joined this LFG session!', flags: MessageFlags.Ephemeral });
                 return;
             }
             session.participants.push({ discordId: userId, discordUsername: interaction.user.tag });
@@ -93,7 +186,7 @@ async function main() {
                     }
                 }
             }
-            await interaction.reply({ content: '✅ You have joined the LFG session! You now have access to the temporary text and voice channels.', ephemeral: true });
+            await interaction.reply({ content: '✅ You have joined the LFG session! You now have access to the temporary text and voice channels.', flags: MessageFlags.Ephemeral });
             return;
         }
 

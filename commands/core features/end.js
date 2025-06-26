@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const { Session } = require('../../models/session');
 
 module.exports = {
@@ -7,7 +7,7 @@ module.exports = {
     .setDescription('End your active LFG session and clean up channels/posts.'),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const userId = interaction.user.id;
     const guild = interaction.guild;
 
@@ -28,7 +28,7 @@ module.exports = {
     await interaction.editReply({
       content: '⚠️ Are you sure you want to end your LFG session? This will delete the temporary channels and post.',
       components: [row],
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
 
     // Wait for button interaction from the user
@@ -40,7 +40,7 @@ module.exports = {
       });
       await confirmation.deferUpdate();
     } catch (err) {
-      await interaction.editReply({ content: '❌ Session end cancelled (no confirmation received).', components: [], ephemeral: true });
+      await interaction.editReply({ content: '❌ Session end cancelled (no confirmation received).', components: [], flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -59,9 +59,11 @@ module.exports = {
       }
     }
 
-    // Attempt to delete temp text and voice channels
+    // Attempt to delete temp text and voice channels (by textChannelId and voiceChannelId)
+    const { textChannelId, voiceChannelId, lfgChannelIds = [], lfgMessageIds = [] } = session;
     let deletedChannels = [];
-    for (const channelId of channelIds) {
+    for (const channelId of [textChannelId, voiceChannelId]) {
+      if (!channelId) continue;
       try {
         const channel = guild.channels.cache.get(channelId);
         if (channel) {
@@ -73,19 +75,19 @@ module.exports = {
       }
     }
 
-    // Attempt to delete LFG post messages
-    const lfgMessageIds = session.lfgMessageIds || [];
-    for (const channelId of channelIds) {
-      const channel = guild.channels.cache.get(channelId);
-      if (channel && lfgMessageIds.length) {
-        for (const msgId of lfgMessageIds) {
-          try {
-            const msg = await channel.messages.fetch(msgId);
-            if (msg) await msg.delete();
-          } catch (err) {
-            // Ignore errors (message may already be deleted)
-          }
+    // Attempt to delete LFG post messages by matching lfgChannelIds and lfgMessageIds by index
+    for (let i = 0; i < lfgChannelIds.length; i++) {
+      const channelId = lfgChannelIds[i];
+      const msgId = lfgMessageIds[i];
+      if (!channelId || !msgId) continue;
+      try {
+        const channel = guild.channels.cache.get(channelId);
+        if (channel) {
+          const msg = await channel.messages.fetch(msgId);
+          if (msg) await msg.delete();
         }
+      } catch (err) {
+        // Ignore errors (message or channel may already be deleted)
       }
     }
 
@@ -94,6 +96,12 @@ module.exports = {
     session.callEndedAt = new Date();
     await session.save();
 
-    await interaction.editReply({ content: '✅ Your LFG session has been ended. Temporary channels and posts have been deleted.', components: [], ephemeral: true });
+    try {
+      await interaction.editReply({ content: '✅ Your LFG session has been ended. Temporary channels and posts have been deleted.', components: [], flags: MessageFlags.Ephemeral });
+    } catch (err) {
+      if (err.code !== 10008) { // Ignore Unknown Message error
+        console.error(err);
+      }
+    }
   }
 };

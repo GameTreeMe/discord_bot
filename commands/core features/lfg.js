@@ -57,6 +57,15 @@ module.exports = {
       return;
     }
 
+    // Check if user has any active gaming sessions
+    const activeSession = await Session.findOne({ creatorDiscordId: host.id, status: { $in: ['open', 'full'] } });
+    if (activeSession) {
+      await interaction.editReply({
+        content: '❌ You already have anongoing gaming session. Please end your current session before creating a new one using `/end`.'
+      });
+      return;
+    }
+
     // Find all games by title or alternative_names (case-insensitive)
     let dbGames = await Game.find({
       $or: [
@@ -83,11 +92,11 @@ module.exports = {
     // Map platform to channel ID
     const platformChannelMap = {
       'PC': '1387195578865156170',
-      'Nintendo Switch': '1387195632724344843',
-      'Xbox': '1387195710876811441',
       'PlayStation': '1387195738752159764',
-      'Mobile': '1387195842196406424',
-      'Other': '1387196020361789561'
+      'Xbox': '1387644182054568057',
+      'Nintendo Switch': '1387195632724344843',
+      'Mobile': '1387639202933506048',
+      'Other': '1387617485716459620'
     };
     const channelId = platformChannelMap[platform] || platformChannelMap['Other'];
     const channel = interaction.guild.channels.cache.get(channelId);
@@ -159,9 +168,11 @@ module.exports = {
       content: `<@${host.id}> This is your temporary LFG text channel! Join the voice channel here: <#${tempVoiceChannel.id}>`
     });
 
-    // Update sessionDoc with new channel IDs
+    // Update sessionDoc with correct channel IDs
     sessionDoc.textChannelId = tempTextChannel.id;
-    sessionDoc.lfgChannelIds = [tempTextChannel.id, tempVoiceChannel.id];
+    sessionDoc.voiceChannelId = tempVoiceChannel.id;
+    // lfgChannelIds should only include the main LFG post channel
+    sessionDoc.lfgChannelIds = [channelId];
     await sessionDoc.save();
 
     // Now create the embed and join button (after channels are created)
@@ -195,7 +206,7 @@ module.exports = {
         components: [joinRow]
       });
       // Save message ID to session
-      sessionDoc.lfgMessageIds.push(sentMsg.id);
+      sessionDoc.lfgMessageIds = [sentMsg.id]; // Only one message per session
       await sessionDoc.save();
       await interaction.editReply({
         content: `Your LFG post has been shared in <#${channelId}>!\nTemporary channels created: <#${tempTextChannel.id}> (text), <#${tempVoiceChannel.id}> (voice).`,
