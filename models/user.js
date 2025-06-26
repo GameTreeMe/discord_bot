@@ -146,7 +146,9 @@ const userSchema = new Schema({
   watchedByteIds:                [Schema.Types.Mixed],
   discordId:                     String, // Added for Discord linking
   discordUsername:               String,  // Optionally store Discord username/tag
-  discordDisplayName:            String   // Optionally store Discord display name
+  discordDisplayName:            String,   // Optionally store Discord display name
+  // Opt-in/out for personalized LFG invites
+  lfgInviteOptIn:                { type: Boolean, default: true }
 }, {
   collection: 'users',
   timestamps: false
