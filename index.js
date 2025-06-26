@@ -48,6 +48,55 @@ async function main() {
             return;
         }
 
+        // Handle button interactions for LFG join
+        if (interaction.isButton() && interaction.customId.startsWith('join_lfg_')) {
+            const sessionId = interaction.customId.replace('join_lfg_', '');
+            const { Session } = require('./models/session');
+            const session = await Session.findOne({ sessionId });
+            if (!session) {
+                await interaction.reply({ content: '❌ This LFG session no longer exists.', ephemeral: true });
+                return;
+            }
+            const userId = interaction.user.id;
+            if (session.participants.some(p => p.discordId === userId)) {
+                await interaction.reply({ content: 'You have already joined this LFG session!', ephemeral: true });
+                return;
+            }
+            session.participants.push({ discordId: userId, discordUsername: interaction.user.tag });
+            await session.save();
+            const guild = interaction.guild;
+            for (const channelId of session.lfgChannelIds || []) {
+                const channel = guild.channels.cache.get(channelId);
+                if (channel) {
+                    await channel.permissionOverwrites.edit(userId, {
+                        ViewChannel: true,
+                        SendMessages: channel.type === 0,
+                        ReadMessageHistory: channel.type === 0,
+                        Connect: channel.type === 2,
+                        Speak: channel.type === 2
+                    });
+                }
+            }
+            // If session is now full, delete the LFG post(s)
+            if (session.participants.length >= session.maxPlayers) {
+                for (const channelId of session.lfgChannelIds || []) {
+                    const channel = guild.channels.cache.get(channelId);
+                    if (channel && session.lfgMessageIds && session.lfgMessageIds.length) {
+                        for (const msgId of session.lfgMessageIds) {
+                            try {
+                                const msg = await channel.messages.fetch(msgId);
+                                if (msg) await msg.delete();
+                            } catch (err) {
+                                // Ignore errors (message may already be deleted)
+                            }
+                        }
+                    }
+                }
+            }
+            await interaction.reply({ content: '✅ You have joined the LFG session! You now have access to the temporary text and voice channels.', ephemeral: true });
+            return;
+        }
+
         if (!interaction.isChatInputCommand()) return;
         const command = interaction.client.commands.get(interaction.commandName);
 

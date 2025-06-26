@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { Game } = require('../../models/games');
 const { Session } = require('../../models/session');
 
@@ -46,6 +46,16 @@ module.exports = {
     const description = interaction.options.getString('description') || 'No description provided.';
     const players = interaction.options.getInteger('players') || 2;
     const host = interaction.user;
+
+    // Check if user is connected (exists in DB by discordUsername)
+    const { User } = require('../../models/user');
+    const dbUser = await User.findOne({ discordUsername: host.username }).lean();
+    if (!dbUser) {
+      await interaction.editReply({
+        content: '❌ You must connect your account first using `/connect` before creating an LFG post.'
+      });
+      return;
+    }
 
     // Find all games by title or alternative_names (case-insensitive)
     let dbGames = await Game.find({
@@ -104,6 +114,57 @@ module.exports = {
     sessionDoc.sessionId = sessionDoc._id.toString();
     await sessionDoc.save();
 
+    // --- Create temporary text and voice channels under LFG category ---
+    const lfgCategoryId = '1387583039294406687';
+    const guild = interaction.guild;
+    // Create a unique channel name based on discordDisplayName
+    const displayName = dbUser.discordDisplayName || host.username;
+    const safeDisplayName = displayName.replace(/[^a-zA-Z0-9]/g, '-').slice(0, 60);
+    const textChannelName = `${safeDisplayName}-text-channel`;
+    const voiceChannelName = `${safeDisplayName}-voice-channel`;
+    // Create text channel
+    const tempTextChannel = await guild.channels.create({
+      name: textChannelName,
+      type: 0, // 0 = GUILD_TEXT
+      parent: lfgCategoryId,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone,
+          deny: ['ViewChannel']
+        },
+        {
+          id: host.id,
+          allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory']
+        }
+      ]
+    });
+    // Create voice channel
+    const tempVoiceChannel = await guild.channels.create({
+      name: voiceChannelName,
+      type: 2, // 2 = GUILD_VOICE
+      parent: lfgCategoryId,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone,
+          deny: ['ViewChannel']
+        },
+        {
+          id: host.id,
+          allow: ['ViewChannel', 'Connect', 'Speak']
+        }
+      ]
+    });
+    // Invite host to both channels (send a message with links)
+    await tempTextChannel.send({
+      content: `<@${host.id}> This is your temporary LFG text channel! Join the voice channel here: <#${tempVoiceChannel.id}>`
+    });
+
+    // Update sessionDoc with new channel IDs
+    sessionDoc.textChannelId = tempTextChannel.id;
+    sessionDoc.lfgChannelIds = [tempTextChannel.id, tempVoiceChannel.id];
+    await sessionDoc.save();
+
+    // Now create the embed and join button (after channels are created)
     const embed = new EmbedBuilder()
       .setTitle('🎮 Looking For Group!')
       .setColor(0x5865F2)
@@ -113,23 +174,31 @@ module.exports = {
         { name: 'Players Needed', value: players.toString(), inline: true },
         { name: 'Host', value: `<@${host.id}>`, inline: true },
         { name: 'Description', value: description, inline: false },
-        { name: 'Game _id(s)', value: gameIdText, inline: false },
-        { name: 'Session ID', value: sessionDoc.sessionId, inline: false }
+        { name: 'Voice Channel', value: `<#${tempVoiceChannel.id}>`, inline: false },
+        { name: 'Text Channel', value: `<#${tempTextChannel.id}>`, inline: false }
       )
       .setFooter({ text: `LFG posted by ${host.tag}` })
       .setTimestamp();
+
+    const joinRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`join_lfg_${sessionDoc.sessionId}`)
+        .setLabel('Join LFG')
+        .setStyle(ButtonStyle.Success)
+    );
 
     if (channel) {
       const sentMsg = await channel.send({
         content: '🚀 New LFG post!',
         embeds: [embed],
-        allowedMentions: { users: [] }
+        allowedMentions: { users: [] },
+        components: [joinRow]
       });
       // Save message ID to session
       sessionDoc.lfgMessageIds.push(sentMsg.id);
       await sessionDoc.save();
       await interaction.editReply({
-        content: `Your LFG post has been shared in <#${channelId}>!`,
+        content: `Your LFG post has been shared in <#${channelId}>!\nTemporary channels created: <#${tempTextChannel.id}> (text), <#${tempVoiceChannel.id}> (voice).`,
       });
     } else {
       await interaction.editReply({
@@ -157,5 +226,5 @@ module.exports = {
     }));
 
     await interaction.respond(choices);
-  }
+  },
 };
