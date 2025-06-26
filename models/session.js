@@ -33,6 +33,11 @@ const sessionSchema = new Schema({
   callEndedAt:        { type: Date },
   acceptances:        { type: [String], default: [] }, // Discord IDs of users who clicked "Join"
   rejectedUsers:      { type: [String], default: [] }, // Discord IDs of users who were denied (optional)
+  // New field for tracking personalized invite DMs
+  personalizedInvites: [{
+    userId: String,    // Discord user ID
+    messageId: String // DM message ID
+  }],
 }, {
   collection: 'sessions'
 });
@@ -46,6 +51,7 @@ sessionSchema.pre('save', function(next) {
 // In your sessionSchema, after fields:
 sessionSchema.index({ sessionId: 1 }, { unique: true });
 sessionSchema.index({ creatorDiscordId: 1 });
+sessionSchema.index({ creatorUsername: 1 });
 sessionSchema.index({ status: 1 });
 sessionSchema.index({ gameId: 1 });
 sessionSchema.index({ voiceChannelId: 1 });

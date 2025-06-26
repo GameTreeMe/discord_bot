@@ -206,11 +206,29 @@ module.exports = {
         components: [joinRow]
       });
       // Save message ID to session
-      sessionDoc.lfgMessageIds = [sentMsg.id]; // Only one message per session
+      sessionDoc.lfgMessageIds = [sentMsg.id];
       await sessionDoc.save();
       await interaction.editReply({
         content: `Your LFG post has been shared in <#${channelId}>!\nTemporary channels created: <#${tempTextChannel.id}> (text), <#${tempVoiceChannel.id}> (voice).`,
       });
+
+      // --- Personalized Invites System ---
+      // You must provide a list of online Discord user IDs who are not in a call.
+      // This should be fetched from your Discord server logic or presence tracking system.
+      // For demonstration, we'll assume you have a function getOnlineUserIdsNotInCall(guild) that returns this list.
+      const { inviteTopMatches } = require('./invites');
+      let onlineUserIds = [];
+      if (typeof getOnlineUserIdsNotInCall === 'function') {
+        onlineUserIds = await getOnlineUserIdsNotInCall(guild);
+      } else {
+        // TODO: Replace this with your actual logic to get online users not in a call
+        onlineUserIds = guild.members.cache
+          .filter(m => m.presence && m.presence.status === 'online' && !m.voice.channel)
+          .map(m => m.user.id);
+      }
+      // Call the personalized invite system
+      await inviteTopMatches(sessionDoc.sessionId, interaction.client, onlineUserIds);
+      // --- End Personalized Invites System ---
     } else {
       await interaction.editReply({
         content: '❌ Could not find the designated channel for this platform.',

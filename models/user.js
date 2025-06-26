@@ -156,5 +156,6 @@ const userSchema = new Schema({
 
 userSchema.index({ discordUsername: 1 });
 userSchema.index({ discordDisplayName: 1 });
+userSchema.index({ discordId: 1 });
 
 module.exports.User = model('User', userSchema);
