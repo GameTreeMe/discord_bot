@@ -21,7 +21,15 @@ module.exports = {
         },
         {
           name: '/lfg',
-          value: 'Finds other users who are looking for a group (LFG) to play games with. (Not yet implemented in bot.)',
+          value: 'Finds other users who are looking for a group (LFG) to play games with. Personalized invites to online top matches as well as post in relevant channel.',
+        },
+        {
+          name: '/opt <yes|no>',
+          value: 'Helps you select whether you opt in or out of personalized LFG invites.',
+        },
+        {
+          name: '/end',
+          value: 'Ends the LFG session you are a part of and deletes the temporary channels and invite posts.',
         },
         {
           name: '/help',
