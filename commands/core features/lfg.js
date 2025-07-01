@@ -139,7 +139,7 @@ module.exports = {
       permissionOverwrites: [
         {
           id: guild.roles.everyone,
-          deny: ['ViewChannel']
+          allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory']
         },
         {
           id: host.id,
@@ -155,7 +155,7 @@ module.exports = {
       permissionOverwrites: [
         {
           id: guild.roles.everyone,
-          deny: ['ViewChannel']
+          allow: ['ViewChannel', 'Connect', 'Speak']
         },
         {
           id: host.id,

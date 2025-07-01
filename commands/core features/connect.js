@@ -13,8 +13,8 @@ module.exports = {
     )
     .addStringOption(opt =>
       opt
-        .setName('id')
-        .setDescription('Your GameTree ID (the long alphanumeric key)')
+        .setName('email')
+        .setDescription('Your GameTree email address')
         .setRequired(true)
     ),
 
@@ -23,7 +23,7 @@ module.exports = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const username   = interaction.options.getString('username', true);
-    const providedId = interaction.options.getString('id', true);
+    const providedEmail = interaction.options.getString('email', true);
 
     // Look up the GameTree user by username
     const user = await User.findOne({ username });
@@ -34,15 +34,15 @@ module.exports = {
       });
     }
 
-    // Compare stored _id to the one they provided
-    if (user._id.toString() !== providedId) {
+    // Compare stored email to the one they provided
+    if (user.email !== providedEmail) {
       return interaction.editReply({
-        content: `❌ The ID you provided does not match the GameTree ID for \`${username}\`. Make sure you copy/paste the **exact**, case-sensitive username and ID.`,
+        content: `❌ The email you provided does not match the GameTree account for \`${username}\`. Please check your email address.`,
         flags: MessageFlags.Ephemeral
       });
     }
 
-    // IDs match → link their Discord account
+    // Email matches → link their Discord account
     if (user.discordId && user.discordUsername) {
       // If already linked, ask for confirmation to update using buttons
       const row = new ActionRowBuilder().addComponents(
@@ -74,7 +74,7 @@ module.exports = {
           user.discordDisplayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
           await user.save();
           await buttonInteraction.update({
-            content: `✅ Updated! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`. Please check case-sensitive spelling.`,
+            content: `✅ Updated! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`.`,
             components: [],
             flags: MessageFlags.Ephemeral
           });
@@ -102,7 +102,7 @@ module.exports = {
     await user.save();
 
     return interaction.editReply({
-      content: `✅ Success! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`. Please check case-sensitive spelling.`,
+      content: `✅ Success! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`.`,
       flags: MessageFlags.Ephemeral
     });
   }
