@@ -12,7 +12,7 @@ async function main() {
     await connectDB();
 
     // 2) Create Discord client
-    const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+    const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.DirectMessages] });
 
     client.commands = new Collection();
     const foldersPath = path.join(__dirname, 'commands');
@@ -41,6 +41,7 @@ async function main() {
 
     // --- Listen for voiceStateUpdate to auto-cleanup abandoned sessions ---
     client.on('voiceStateUpdate', async (oldState, newState) => {
+        if (newState.guild.id !== targetGuildId && oldState.guild.id !== targetGuildId) return;
         const lfgCategoryId = '1387583039294406687';
         const leftChannel = oldState.channel;
         const joinedChannel = newState.channel;

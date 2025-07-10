@@ -1,8 +1,10 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { Game } = require('../../models/games');
 const { Session } = require('../../models/session');
+const { targetGuildId } = require('../../config.json');
 
 module.exports = {
+  guildOnly: true,
   data: new SlashCommandBuilder()
     .setName('lfg')
     .setDescription('Create a Looking For Group (LFG) post')
@@ -42,6 +44,21 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (interaction.guildId && interaction.guildId !== targetGuildId) {
+      await interaction.reply({
+        content: 'This command can only be used in the LFG Bot testing server.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (!interaction.guild) {
+      await interaction.reply({
+        content: 'The `/lfg` command must be used within the LFG Bot testing server, not in DMs.',
+        ephemeral: true
+      });
+      return;
+    }
     const gameInput = interaction.options.getString('game', true);
     const platform = interaction.options.getString('platform', true);
     const description = interaction.options.getString('description') || 'No description provided.';

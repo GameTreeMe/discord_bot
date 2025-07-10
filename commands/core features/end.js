@@ -1,13 +1,30 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const { Session } = require('../../models/session');
 const { endLFGSession } = require('../../utils/sessionManager');
+const { targetGuildId } = require('../../config.json');
 
 module.exports = {
+  guildOnly: true,
   data: new SlashCommandBuilder()
     .setName('end')
     .setDescription('End your active LFG session and clean up channels/posts.'),
 
   async execute(interaction) {
+    if (interaction.guildId && interaction.guildId !== targetGuildId) {
+      await interaction.reply({
+        content: 'This command can only be used in the LFG Bot testing server.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (!interaction.guild) {
+      await interaction.reply({
+        content: 'The `/end` command must be used within the LFG Bot testing server, not in DMs.',
+        ephemeral: true
+      });
+      return;
+    }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const userId = interaction.user.id;
     const guild = interaction.guild;
