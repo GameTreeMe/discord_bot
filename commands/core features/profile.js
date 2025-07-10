@@ -21,7 +21,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
 
     const username = interaction.options.getString('username', true);
 

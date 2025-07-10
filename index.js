@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { connectDB } = require('./database'); // Add this line to import your DB connection
+const { endLFGSession } = require('./utils/sessionManager');
 
 const { token } = require('./config.json');
 
@@ -36,43 +37,7 @@ async function main() {
     const cleanupTimers = new Map();
 
     // Helper to end a session (robust, 1:1 mapping for posts, temp channel deletion)
-    async function endLFGSession(session, guild) {
-        // 1. Kick users from the session's voice channel (for safety)
-        const { voiceChannelId, textChannelId, lfgChannelIds = [], lfgMessageIds = [] } = session;
-        if (voiceChannelId) {
-            const voiceChannel = guild.channels.cache.get(voiceChannelId);
-            if (voiceChannel && voiceChannel.type === 2) {
-                for (const [_, member] of voiceChannel.members) {
-                    try { await member.voice.disconnect('LFG session ended'); } catch {}
-                }
-            }
-        }
-        // 2. Delete temp text and voice channels
-        for (const channelId of [textChannelId, voiceChannelId]) {
-            if (!channelId) continue;
-            try {
-                const channel = guild.channels.cache.get(channelId);
-                if (channel) await channel.delete('LFG session ended');
-            } catch {}
-        }
-        // 3. Delete LFG post messages by 1:1 mapping
-        for (let i = 0; i < lfgChannelIds.length; i++) {
-            const channelId = lfgChannelIds[i];
-            const msgId = lfgMessageIds[i];
-            if (!channelId || !msgId) continue;
-            try {
-                const channel = guild.channels.cache.get(channelId);
-                if (channel) {
-                    const msg = await channel.messages.fetch(msgId);
-                    if (msg) await msg.delete();
-                }
-            } catch {}
-        }
-        // 4. Mark session as closed
-        session.status = 'closed';
-        session.callEndedAt = new Date();
-        await session.save();
-    }
+    // MOVED TO utils/sessionManager.js
 
     // --- Listen for voiceStateUpdate to auto-cleanup abandoned sessions ---
     client.on('voiceStateUpdate', async (oldState, newState) => {
@@ -89,7 +54,7 @@ async function main() {
                     const timer = setTimeout(async () => {
                         const refreshed = leftChannel.guild.channels.cache.get(leftChannel.id);
                         if (refreshed && refreshed.members.size === 0) {
-                            await endLFGSession(session, leftChannel.guild);
+                            await endLFGSession(session, leftChannel.guild, client);
                         }
                         cleanupTimers.delete(leftChannel.id);
                     }, 60000);
@@ -121,7 +86,7 @@ async function main() {
                     // Find session by voiceChannelId
                     const session = await Session.findOne({ voiceChannelId: channelId, status: { $in: ['open', 'full'] } });
                     if (session) {
-                        await endLFGSession(session, guild);
+                        await endLFGSession(session, guild, client);
                     }
                 }
             }
@@ -186,7 +151,7 @@ async function main() {
                     }
                 }
             }
-            await interaction.reply({ content: '✅ You have joined the LFG session! You now have access to the temporary text and voice channels.', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: `✅ You have joined the LFG session! You now have access to the temporary channels: <#${session.textChannelId}> (text) and <#${session.voiceChannelId}> (voice).`, flags: MessageFlags.Ephemeral });
             return;
         }
 
