@@ -256,15 +256,7 @@ module.exports = {
       // Only send personalized invites if the user is connected
       if (dbUser) {
         const { inviteTopMatches } = require('./invites');
-        let onlineUserIds = [];
-        if (typeof getOnlineUserIdsNotInCall === 'function') {
-          onlineUserIds = await getOnlineUserIdsNotInCall(guild);
-        } else {
-          // TODO: Replace this with your actual logic to get online users not in a call
-          onlineUserIds = guild.members.cache
-            .filter(m => m.presence && m.presence.status === 'online' && !m.voice.channel)
-            .map(m => m.user.id);
-        }
+        const onlineUserIds = await getOnlineUsers(interaction.guild);
         // Call the personalized invite system
         await inviteTopMatches(sessionDoc.sessionId, interaction.client, onlineUserIds);
       }
@@ -308,3 +300,16 @@ module.exports = {
     }
   },
 };
+
+async function getOnlineUsers(guild) {
+  if (!guild) return [];
+  // Fetch all members to ensure presence data is up to date
+  await guild.members.fetch();
+  const onlineUsers = guild.members.cache.filter(member =>
+    member.presence &&
+    member.presence.status === 'online' &&
+    !member.voice.channel &&
+    !member.user.bot
+  );
+  return onlineUsers.map(member => member.user.id);
+}

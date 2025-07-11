@@ -12,19 +12,33 @@ const { sendLFGInviteDM } = require('../utility/dm');
 async function inviteTopMatches(sessionId, client, onlineUserIds) {
   // 1. Fetch session and creator
   const session = await Session.findOne({ sessionId });
-  if (!session) throw new Error('Session not found');
+  if (!session) {
+    console.error(`Session ${sessionId} not found`);
+    throw new Error('Session not found');
+  }
   const creator = await User.findOne({ discordId: session.creatorDiscordId });
-  if (!creator) throw new Error('Session creator not found');
+  if (!creator) {
+    console.error(`Creator with Discord ID ${session.creatorDiscordId} not found`);
+    throw new Error('Session creator not found');
+  }
 
-  // 2. Fetch all online users (not in a call)
-  // Get their user docs in one query
-  const users = await User.find({
-    discordId: { $in: onlineUserIds },
-    lfgInviteOptIn: true,
-    platforms: session.platform,
-    gameIds: session.gameId,
-    'profile.languages': { $in: creator.profile?.languages || [] }
-  });
+  // 2. Fetch all online users (not in a call) and filter sequentially
+  const onlineUsers = await User.find({ discordId: { $in: onlineUserIds } });
+
+  // Filter by opt-in
+  const optInUsers = onlineUsers.filter(u => u.lfgInviteOptIn === true);
+
+  // Filter by platform
+  const platformFilteredUsers = optInUsers.filter(u => u.platforms && u.platforms.includes(session.platform));
+
+  // Filter by game
+  const gameFilteredUsers = platformFilteredUsers.filter(u => u.gameIds && u.gameIds.some(gameId => gameId.equals(session.gameId)));
+
+  const users = gameFilteredUsers;
+
+  if (users.length === 0) {
+    return;
+  }
 
   // Remove the creator from the list
   const filtered = users.filter(u => u.discordId !== session.creatorDiscordId);
@@ -61,7 +75,9 @@ async function inviteTopMatches(sessionId, client, onlineUserIds) {
     const refreshed = await Session.findOne({ sessionId });
     if (!refreshed) return;
     const spotsLeft = Math.max(0, refreshed.maxPlayers - refreshed.participants.length);
-    if (spotsLeft === 0 || invitesSent >= totalToInvite) return;
+    if (spotsLeft === 0 || invitesSent >= totalToInvite) {
+      return;
+    }
     // Send up to spotsLeft invites from the waiting list
     let sentThisBatch = 0;
     while (sentThisBatch < spotsLeft && inviteIndex < scored.length && invitesSent < totalToInvite) {

@@ -74,7 +74,7 @@ module.exports = {
 
     if (!dbUser) {
       return interaction.editReply({
-        content: `❌ No user found with Discord display name, Discord username, or GameTree username \`${username}\`. Please type the case-sensitive name.`
+        content: `❌ No user found with Discord display name, Discord username, or GameTree username \`${username}\`. Please check the case-sensitive spelling and try again. Alternatively, the user may not have connected their GameTree account yet.`
       });
     }
 

@@ -5,14 +5,14 @@ const { Client, Collection, Events, GatewayIntentBits, MessageFlags } = require(
 const { connectDB } = require('./database'); // Add this line to import your DB connection
 const { endLFGSession } = require('./utils/sessionManager');
 
-const { token } = require('./config.json');
+const { token, targetGuildId } = require('./config.json');
 
 async function main() {
     // 1) Connect to MongoDB
     await connectDB();
 
     // 2) Create Discord client
-    const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.DirectMessages] });
+    const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.DirectMessages, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildPresences] });
 
     client.commands = new Collection();
     const foldersPath = path.join(__dirname, 'commands');
@@ -123,7 +123,12 @@ async function main() {
             }
             session.participants.push({ discordId: userId, discordUsername: interaction.user.tag });
             await session.save();
-            const guild = interaction.guild;
+            const guild = interaction.guild || await client.guilds.fetch(targetGuildId);
+            if (!guild) {
+                console.error(`Could not find guild with ID ${targetGuildId}.`);
+                await interaction.reply({ content: '❌ There was an error joining the session. Could not find the server.', flags: MessageFlags.Ephemeral });
+                return;
+            }
             for (const channelId of session.lfgChannelIds || []) {
                 const channel = guild.channels.cache.get(channelId);
                 if (channel) {

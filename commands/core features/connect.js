@@ -99,10 +99,11 @@ module.exports = {
     user.discordId = interaction.user.id;
     user.discordUsername = interaction.user.tag;
     user.discordDisplayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
+    user.lfgInviteOptIn = true; // Default to opt-in for LFG invites
     await user.save();
 
     return interaction.editReply({
-      content: `✅ Success! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`.`,
+      content: `✅ Success! Your Discord account <@${interaction.user.id}> is now linked to GameTree user \`${username}\`. You can now use LFG features and receive invites. To update your opt in/out status for LFG invites, use the \`/opt\` command.`,
       flags: MessageFlags.Ephemeral
     });
   }

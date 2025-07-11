@@ -40,21 +40,21 @@ async function sendLFGInviteDM(client, targetUserId, sessionId) {
     const row = new ActionRowBuilder().addComponents(joinButton);
 
     // 5. Send the DM
-    await userObj.send({
+    const dmMessage = await userObj.send({
       content: `You’ve been matched for a game session!`,
       embeds: [embed],
       components: [row],
     });
 
-    return true;
+    return dmMessage;
   } catch (err) {
     // DMs might be closed or user not found
     if (err.code === 50007) {
-      console.log(`[LFG DM] Failed to DM user ${targetUserId}: DMs closed.`);
+      // DMs are closed, this is not an error in our logic
     } else {
-      console.error(`[LFG DM] Error sending DM to user ${targetUserId}:`, err);
+      console.error(`Error sending DM to user ${targetUserId}:`, err);
     }
-    return false;
+    return null;
   }
 }
 

@@ -33,8 +33,7 @@ const sessionSchema = new Schema({
   callEndedAt:        { type: Date },
   acceptances:        { type: [String], default: [] }, // Discord IDs of users who clicked "Join"
   rejectedUsers:      { type: [String], default: [] }, // Discord IDs of users who were denied (optional)
-  // New field for tracking personalized invite DMs
-  personalizedInvites: [{
+  personalizedInvites: [{   // field for tracking personalized invite DMs
     userId: String,    // Discord user ID
     messageId: String // DM message ID
   }],

@@ -41,13 +41,36 @@ async function endLFGSession(session, guild, client) {
     const msgId = session.lfgMessageIds[i];
     if (!channelId || !msgId) continue;
     try {
-      const channel = guild.channels.cache.get(channelId);
+      const channel = await client.channels.fetch(channelId);
       if (channel) {
-        const msg = await channel.messages.fetch(msgId).catch(() => null);
-        if (msg) await msg.delete();
+        await channel.messages.delete(msgId);
       }
     } catch (err) {
-      console.error(`Failed to delete LFG message ${msgId} in channel ${channelId}:`, err);
+      // If the error is "Unknown Message" (code 10008), it's safe to ignore.
+      // This happens if the message was already deleted by other logic (e.g., when the session became full).
+      if (err.code === 10008) {
+        console.log(`Tried to delete message ${msgId}, but it was already gone. Ignoring.`);
+      } else {
+        console.error(`Failed to delete LFG message ${msgId} in channel ${channelId}:`, err);
+      }
+    }
+  }
+
+  // 1.5. Delete personalized invite DMs
+  if (session.personalizedInvites && session.personalizedInvites.length > 0) {
+    for (const invite of session.personalizedInvites) {
+      try {
+        const user = await client.users.fetch(invite.userId);
+        const dmChannel = await user.createDM();
+        await dmChannel.messages.delete(invite.messageId);
+      } catch (err) {
+        // Ignore errors if message is already gone or user has DMs closed/blocked the bot.
+        if (err.code === 10008 /* Unknown Message */ || err.code === 50007 /* Cannot send messages to this user */) {
+          console.log(`Could not delete DM for user ${invite.userId}, it might already be gone or DMs are blocked.`);
+        } else {
+          console.error(`Failed to delete personalized invite for user ${invite.userId}:`, err);
+        }
+      }
     }
   }
 
@@ -55,7 +78,7 @@ async function endLFGSession(session, guild, client) {
   for (const channelId of [session.textChannelId, session.voiceChannelId]) {
     if (!channelId) continue;
     try {
-      const channel = guild.channels.cache.get(channelId);
+      const channel = await client.channels.fetch(channelId).catch(() => null);
       if (channel) await channel.delete('LFG session ended');
     } catch (err) {
       console.error(`Failed to delete temp channel ${channelId}:`, err);
