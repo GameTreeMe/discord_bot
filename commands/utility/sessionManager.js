@@ -1,4 +1,4 @@
-const { Session } = require('../models/session');
+const { Session } = require('../../models/session');
 
 /**
  * Sends a summary of the gaming session to all participants via DM.
@@ -14,7 +14,7 @@ async function sendSessionSummary(client, session) {
   // Create a mention string for each participant
   const participantMentions = session.participants.map(p => `<@${p.discordId}>`).join(', ');
 
-  const summaryMessage = `**Session Summary**\n\n**Game:** ${gameName}\n**Players:** ${participantMentions}\n\nGameTree hopes you enjoyed your gaming session.`;
+  const summaryMessage = `**Session Summary**\n\n**Game:** ${gameName}\n**Players:** ${participantMentions}\n\nWe hope you enjoyed your gaming session.`;
 
   for (const participant of session.participants) {
     try {

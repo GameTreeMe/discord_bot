@@ -119,14 +119,14 @@ module.exports = {
 
     // Map platform to channel ID
     const platformChannelMap = {
-      'pc': '1387195578865156170',
-      'playstation': '1387195738752159764',
-      'nintendo': '1387195632724344843',
-      'mobile': '1387639202933506048',
-      'other': '1387617485716459620',
-      'xbox': '1392734591621664868',
-      'web3': '1392734683007025192',
-      'tabletop': '1392734704674930748'
+      'pc': '1393374318091829340',
+      'playstation': '1393374359724490984',
+      'nintendo': '1393374376728068116',
+      'mobile': '1393374299246825492',
+      'other': '1393374432315179128',
+      'xbox': '1393374341848105170',
+      'web3': '1393374461142761552',
+      'tabletop': '1393374476074352842'
     };
     
     // Use exact match (case-insensitive) or default to 'other'
@@ -156,7 +156,7 @@ module.exports = {
     await sessionDoc.save();
 
     // --- Create temporary text and voice channels under LFG category ---
-    const lfgCategoryId = '1387583039294406687';
+    const lfgCategoryId = '1393373933813629058';
     const guild = interaction.guild;
     // Create a unique channel name based on host.username
     const displayName = host.username;

@@ -13,23 +13,23 @@ module.exports = {
       .addFields(
         {
           name: '/profile <username>',
-          value: 'Fetches information about a particular user and shares a summary. Please update your Display Name to your GameTree username to make searching easier for everyone.',
+          value: 'Shares the GameTree profile of the specified user. If the user has connected their GameTree account to Discord, it should work with their Discord display name and username too!',
         },
         {
           name: '/connect <username> <id>',
-          value: 'Links your Discord account to your GameTree account by verifying your username and GameTree ID.',
+          value: 'Links your Discord account to your GameTree account using your username and email id. Please connect to enable advanced curation and to make it easier for fellow gamers to search for you.',
         },
         {
           name: '/lfg',
-          value: 'Finds other users who are looking for a group (LFG) to play games with. Personalized invites to online top matches as well as post in relevant channel.',
+          value: 'Finds other users who are looking for a group (LFG) to play games with. Will send personalized invites to online top matches as well as post in relevant channel.',
         },
         {
           name: '/opt <yes|no>',
-          value: 'Helps you select whether you opt in or out of personalized LFG invites.',
+          value: 'Helps you select whether you opt in or out of receiving personalized LFG invites.',
         },
         {
           name: '/end',
-          value: 'Ends the LFG session you are a part of and deletes the temporary channels and invite posts.',
+          value: 'Ends the LFG session you are a part of (can only be done by session host). Don\'t fret if you forget, we have automatic cleanup!',
         },
         {
           name: '/help',

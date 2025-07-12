@@ -41,7 +41,7 @@ async function sendLFGInviteDM(client, targetUserId, sessionId) {
 
     // 5. Send the DM
     const dmMessage = await userObj.send({
-      content: `You’ve been matched for a game session!`,
+      content: `A top match wants to game with you!`,
       embeds: [embed],
       components: [row],
     });

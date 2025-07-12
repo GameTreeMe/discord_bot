@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js');
 const { Session } = require('../../models/session');
-const { endLFGSession } = require('../../utils/sessionManager');
+const { endLFGSession } = require('../utility/sessionManager');
 const { targetGuildId } = require('../../config.json');
 
 module.exports = {

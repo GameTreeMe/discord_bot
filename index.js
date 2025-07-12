@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { connectDB } = require('./database'); // Add this line to import your DB connection
-const { endLFGSession } = require('./utils/sessionManager');
+const { endLFGSession } = require('./commands/utility/sessionManager');
 
 const { token, targetGuildId } = require('./config.json');
 
