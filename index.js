@@ -40,9 +40,9 @@ async function main() {
     // MOVED TO utils/sessionManager.js
 
     // --- Listen for voiceStateUpdate to auto-cleanup abandoned sessions ---
+    const { lfgCategoryId } = require('./config.json');
     client.on('voiceStateUpdate', async (oldState, newState) => {
         if (newState.guild.id !== targetGuildId && oldState.guild.id !== targetGuildId) return;
-        const lfgCategoryId = '1387583039294406687';
         const leftChannel = oldState.channel;
         const joinedChannel = newState.channel;
         // If user left a channel in the LFG category
@@ -75,7 +75,7 @@ async function main() {
     // --- On bot startup, clean up abandoned sessions (empty LFG voice channels) ---
     client.once(Events.ClientReady, async (readyClient) => {
         console.log(`Ready! Logged in as ${readyClient.user.tag}`);
-        const lfgCategoryId = '1387583039294406687';
+        // lfgCategoryId is now imported from config.json
         // Fetch all guilds the bot is in
         const guilds = await client.guilds.fetch();
         for (const [guildId] of guilds) {
